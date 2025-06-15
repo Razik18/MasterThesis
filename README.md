@@ -1,2 +1,2 @@
 # MasterThesis
-Repo for the work done arounf my master thesis 
+Repo for the work done around my master thesis 
