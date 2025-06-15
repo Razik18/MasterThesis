@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/settings.css') }}">
+</head>
+<body>
+    <div class="container">
+        <a href="./main" class="back-arrow">&#8592;</a>
+        <h1>Settings</h1>
+        <form id="settings-form">
+            <div class="setting-row">
+                <label for="template_name">Template Name:</label>
+                <input type="text" id="template_name" name="template_name" placeholder="Enter Template Name">
+            </div>
+            <div class="metadata-container">
+                <h3>Metadata</h3>
+                <div class="metadata-row">
+                    <select id="metadata_dropdown" class="metadata-dropdown">
+                        <option value="">Select Metadata</option>
+                        <!-- Options will be here -->
+                    </select>
+                    <input type="number" id="metadata_order" placeholder="Order (optional)" min="1" style="max-width: 80px;">
+                    <input type="number" id="metadata_row" placeholder="Row (optional)" min="1" style="max-width: 80px;">
+                    <button type="button" onclick="addMetadata()">+ Add Metadata</button>
+                </div>
+                <h4>Metadata Map:</h4>
+                <div class="metadata-list" id="metadata-list">
+                    <!-- Metadata list will be here -->
+                </div>
+            </div>
+            <div class="setting-row">
+                <label for="naming_pattern">Naming Pattern:</label>
+                <input type="text" id="naming_pattern" name="naming_pattern" placeholder="Enter Naming Pattern">
+            </div>
+            <div class="checkbox-row">
+                <input type="checkbox" id="use_protocol_stain_map" onchange="toggleProtocolStainMap()">
+                <label for="use_protocol_stain_map">Use Protocol-Stain Map</label>
+                <input type="checkbox" id="use_patient_id">
+                <label for="use_patient_id">Use PatientID</label>
+                <input type="checkbox" id="use_image_name">
+                <label for="use_image_name">Use Image Name</label>
+            </div>
+            <div class="protocol-container" id="protocol-container" style="display: none;">
+                <h3>Protocols</h3>
+                <div class="protocol-row">
+                    <input type="text" id="protocol_prefix" name="protocol_prefix" placeholder="Prefix">
+                    <input type="text" id="protocol_name" name="protocol_name" placeholder="Protocol Name">
+                    <select id="protocol_stain" name="protocol_stain">
+                        <option value="">Select Stain</option>
+                        <!-- Options will be here -->
+                    </select>
+                    <input type="text" id="protocol_clone" name="protocol_clone" placeholder="Clone">
+                    <button type="button" onclick="addProtocol()">+ Add Protocol</button>
+                </div>
+                <div class="setting-row">
+                    <label for="protocol_stain_map">Protocol Stain Map:</label>
+                    <input type="hidden" id="protocol_stain_map" name="protocol_stain_map">
+                    <div class="protocol-list" id="protocol-list">
+                        <!-- Protocols will be here -->
+                    </div>
+                </div>
+            </div>
+            <div class="template-dropdown">
+                <select id="template-dropdown" onchange="loadTemplate()">
+                    <option value="new">New Template</option>
+                </select>
+            </div>
+            <div class="save-button">
+                <button type="button" onclick="saveSettings()">Save Settings</button>
+            </div>
+        </form>
+    </div>
+    <script>
+        let templates = {};
+        let stainOptions = {};
+        let protocolStainMap = {};
+        let metadataFields = [];
+        let metadataMap = {};
+
+        function saveSettings() {
+            const data = {
+                template_name: document.getElementById('template_name').value,
+                metadata_map: JSON.stringify(metadataMap),
+                protocol_stain_map: JSON.stringify(protocolStainMap),
+                naming_pattern: document.getElementById('naming_pattern').value,
+                use_patient_id: document.getElementById('use_patient_id').checked,
+                use_image_name: document.getElementById('use_image_name').checked  // Include this line
+            };
+
+            // Log the data being sent
+            console.log("Data being sent to backend:", data);
+
+            fetch('/save_settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    alert('Template updated successfully');
+                } else {
+                    alert('Failed to update settings');
+                }
+            });
+        }
+
+        function addProtocol() {
+            const protocolPrefix = document.getElementById('protocol_prefix').value;
+            const protocolName = document.getElementById('protocol_name').value;
+            const protocolStain = document.getElementById('protocol_stain').options[document.getElementById('protocol_stain').selectedIndex].text;
+            const protocolClone = document.getElementById('protocol_clone').value;
+
+            if (protocolName && protocolStain) {
+                protocolStainMap[protocolName] = {
+                    prefix: protocolPrefix,
+                    stain: protocolStain,
+                    clone: protocolClone
+                };
+                updateProtocolStainMapInput();
+                renderProtocolList();
+            } else {
+                alert('Please enter both protocol name and stain');
+            }
+        }
+
+        function updateProtocolStainMapInput() {
+            const protocolStainMapInput = document.getElementById('protocol_stain_map');
+            protocolStainMapInput.value = JSON.stringify(protocolStainMap);
+        }
+
+        function renderProtocolList() {
+            const protocolList = document.getElementById('protocol-list');
+            protocolList.innerHTML = '';
+            for (const [protocol, { prefix, stain, clone }] of Object.entries(protocolStainMap)) {
+                const protocolItem = document.createElement('div');
+                protocolItem.classList.add('protocol-item');
+                protocolItem.innerHTML = `
+                    <span>${prefix ? `Prefix: ${prefix}, ` : ''}${protocol}: ${stain}${clone ? `, Clone: ${clone}` : ''}</span>
+                    <button type="button" onclick="deleteProtocol('${protocol}')">X</button>
+                `;
+                protocolList.appendChild(protocolItem);
+            }
+        }
+
+        function deleteProtocol(protocol) {
+            delete protocolStainMap[protocol];
+            updateProtocolStainMapInput();
+            renderProtocolList();
+        }
+
+        function addMetadata() {
+            const selectedMetadataId = document.getElementById('metadata_dropdown').value;
+            const orderValue = document.getElementById('metadata_order').value;
+            const rowValue = document.getElementById('metadata_row').value;
+            const selectedMetadata = metadataFields.find(field => field.id === parseInt(selectedMetadataId));
+
+            console.log('Selected Metadata ID:', selectedMetadataId);
+            console.log('Selected Metadata:', selectedMetadata);
+
+            if (selectedMetadata) {
+                metadataMap[selectedMetadataId] = {
+                    name: selectedMetadata.name,
+                    order: orderValue || '',
+                    row: rowValue || ''
+                };
+                renderMetadataList();
+                generateNamingPattern();
+            } else {
+                alert('Please select a valid metadata field');
+            }
+        }
+
+        function renderMetadataList() {
+            const metadataList = document.getElementById('metadata-list');
+            metadataList.innerHTML = '';
+            for (const [id, { name, order, row }] of Object.entries(metadataMap)) {
+                const metadataItem = document.createElement('div');
+                metadataItem.classList.add('metadata-item');
+                metadataItem.innerHTML = `
+                    <span>${name}: Order ${order ? order : 'No Order'}, Row ${row ? row : 'No Row'}</span>
+                    <button type="button" onclick="deleteMetadata('${id}')">X</button>
+                `;
+                metadataList.appendChild(metadataItem);
+            }
+        }
+
+        function deleteMetadata(metadataId) {
+            delete metadataMap[metadataId];
+            renderMetadataList();
+            generateNamingPattern();
+        }
+
+        function generateNamingPattern() {
+            const sortedMetadata = Object.entries(metadataMap)
+                .filter(([id, { order }]) => order !== '') // Filter out metadata with no order
+                .sort((a, b) => {
+                    const orderA = parseInt(a[1].order) || 0;
+                    const orderB = parseInt(b[1].order) || 0;
+                    return orderA - orderB;
+                });
+
+            const namingPattern = sortedMetadata.map(entry => {
+                const field = metadataFields.find(field => field.id === parseInt(entry[0]));
+                return field ? `[${field.name}]` : '';
+            }).join(' ');
+
+            document.getElementById('naming_pattern').value = namingPattern;
+        }
+
+        function loadTemplate() {
+            const selectedTemplate = document.getElementById('template-dropdown').value;
+            if (selectedTemplate === 'new') {
+                clearFields();
+            } else if (selectedTemplate) {
+                const template = templates[selectedTemplate];
+                document.getElementById('template_name').value = selectedTemplate;
+                metadataMap = template.metadata;
+                protocolStainMap = template.protocols;
+
+                // Set the naming pattern from the template
+                const namingPattern = template.naming_pattern || '';
+                document.getElementById('naming_pattern').value = namingPattern;
+
+                // Set the use_patient_id checkbox state
+                document.getElementById('use_patient_id').checked = template.use_patient_id || false;
+
+                // Set the use_image_name checkbox state
+                document.getElementById('use_image_name').checked = template.use_image_name || false;
+
+                updateProtocolStainMapInput();
+                renderProtocolList();
+                renderMetadataList();
+
+                // Check if the template has protocols
+                const hasProtocols = Object.keys(protocolStainMap).length > 0;
+                document.getElementById('use_protocol_stain_map').checked = hasProtocols;
+                toggleProtocolStainMap();
+            }
+        }
+
+        function clearFields() {
+            document.getElementById('template_name').value = '';
+            document.getElementById('naming_pattern').value = '';
+            metadataMap = {};
+            protocolStainMap = {};
+            updateProtocolStainMapInput();
+            renderProtocolList();
+            renderMetadataList();
+            generateNamingPattern();
+        }
+
+        function toggleProtocolStainMap() {
+            const protocolContainer = document.getElementById('protocol-container');
+            const isChecked = document.getElementById('use_protocol_stain_map').checked;
+            protocolContainer.style.display = isChecked ? 'block' : 'none';
+        }
+
+        function populateStainOptions() {
+            fetch('/get_stain_options')
+            .then(response => response.json())
+            .then(data => {
+                stainOptions = data;
+                const select = document.getElementById('protocol_stain');
+                select.innerHTML = '<option value="">Select Stain</option>';
+                for (const [key, value] of Object.entries(data)) {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.text = value;
+                    select.appendChild(option);
+                }
+            });
+        }
+
+        function populateTemplateDropdown() {
+            fetch('/get_templates')
+            .then(response => response.json())
+            .then(data => {
+                templates = data;
+                const select = document.getElementById('template-dropdown');
+                select.innerHTML = '<option value="new">New Template</option>';
+                for (const key in data) {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.text = key;
+                    select.appendChild(option);
+                }
+            });
+        }
+
+        function populateMetadataDropdown() {
+            fetch('/get_metadata_fields')
+            .then(response => response.json())
+            .then(data => {
+                metadataFields = data.sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
+                console.log('Populated Metadata Fields:', metadataFields);
+                const select = document.getElementById('metadata_dropdown');
+                select.innerHTML = '<option value="">Select Metadata</option>';
+                metadataFields.forEach(field => {
+                    const option = document.createElement('option');
+                    option.value = field.id;
+                    option.text = `${field.name} (ID: ${field.id})`;
+                    select.appendChild(option);
+                });
+                // Render any pre-existing metadata
+                renderMetadataList();
+                generateNamingPattern();
+            });
+        }
+
+        // Populate dropdowns on page load
+        window.onload = function() {
+            populateStainOptions();
+            populateTemplateDropdown();
+            populateMetadataDropdown();
+        };
+    </script>
+</body>
+</html>

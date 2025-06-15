@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage Images in Repository</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles/ocr.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <!-- DataTables CSS -->
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.css"
+    />
+    <!-- DataTables Select Extension CSS -->
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.datatables.net/select/1.6.2/css/select.dataTables.min.css"
+    />
+  </head>
+  <body>
+    <h1>Manage Images Metadata</h1>
+  <p>
+    This page allows to change the metadata of images in a repository with or without using the OCR (Optical character recognition) to read the labels.
+  </p>
+    <form id="load-images-form">
+      <label for="source_repository_id">Enter Source Repository ID:</label>
+      <div id="load-images-button-container">
+        <input
+          type="text"
+          id="source_repository_id"
+          name="source_repository_id"
+        />
+        <button type="button" id="load-images-button" onclick="loadImages()">
+          Load Repository
+        </button>
+        <div class="loader" id="load-images-loader" style="display: none"></div>
+      </div>
+    </form>
+    <div class="dropdown-container">
+      <select id="template-dropdown" onchange="loadTemplate()">
+        <option value="">Select Template</option>
+      </select>
+      <button class="settings-button" onclick="goToSettings()">⚙️</button>
+      <!-- Return button -->
+      <div class="return-container">
+        <button onclick="window.location.href='/main';">Main Menu</button>
+      </div>
+    </div>
+    <div id="perform-ocr-button-container" style="display: none">
+      <div class="button-container">
+        <button
+          id="perform-ocr-button"
+          class="perform-ocr-button"
+          onclick="performOCR()"
+        >
+          Load Image(s)
+        </button>
+        <input type="checkbox" id="use-ocr-checkbox" checked /> Use OCR
+        <div class="loader" id="ocr-loader" style="display: none"></div>
+      </div>
+    </div>
+    <div id="image-table-container">
+      <table id="image-table" class="display">
+        <thead>
+          <tr>
+            <th class="select-checkbox" style="width: 30px">
+              <input type="checkbox" id="select-all" />
+            </th>
+            <th>Image Name</th>
+            <th>Date</th>
+            <th>Image ID</th>
+            <th>Image Label</th>
+            <!-- Metadata columns will be dynamically inserted here -->
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Image rows will be dynamically inserted here -->
+        </tbody>
+      </table>
+    </div>
+    <div id="ocr-results-container"></div>
+    <div id="update-all-button-container" style="display: none">
+      <div class="button-container">
+        <button
+          id="update-all-button"
+          class="update-all-button"
+          onclick="updateAllImages()"
+        >
+          Update All Images
+        </button>
+        <div class="loader" id="update-all-loader" style="display: none"></div>
+      </div>
+    </div>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.js"></script>
+    <!-- DataTables Select Extension JS -->
+    <script src="https://cdn.datatables.net/select/1.6.2/js/dataTables.select.min.js"></script>
+    <script>
+      // Global variables
+      let stainOptions = {};
+      let protocolStainMap = {};
+      let selectedTemplate = null;
+      let processedImages = new Set();
+      let updatedImages = new Set();
+      let sortDirection = 1;
+      let lastChecked = null;
+      let metadataFetched = false;
+      let usePatientId = false;
+      let useImageName = false;
+      let imageUrls = {};
+      let imageMetadata = {};
+      let dataTable = null;
+      let allImagesData = []; // Global storage for all image data
+
+      function resetPage() {
+        // If there is an existing DataTable, destroy it and remove its DOM
+        if (dataTable) {
+          dataTable.destroy();
+          dataTable = null;
+        }
+
+        // Reset the table container by removing its inner HTML and adding back the initial table structure
+        document.getElementById("image-table-container").innerHTML = `
+            <table id="image-table" class="display">
+            <thead>
+                <tr>
+                <th class="select-checkbox" style="width: 30px;">
+                    <input type="checkbox" id="select-all">
+                </th>
+                <th>Image Name</th>
+                <th>Date</th>
+                <th>Image ID</th>
+                <th>Image Label</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+            </table>
+        `;
+
+        // Clear out any OCR results and hide OCR/update buttons
+        document.getElementById("ocr-results-container").innerHTML = "";
+        document.getElementById("perform-ocr-button-container").style.display =
+          "none";
+        document.getElementById("update-all-button-container").style.display =
+          "none";
+
+        // Reset global variables if needed
+        allImagesData = [];
+        processedImages = new Set();
+        updatedImages = new Set();
+      }
+
+      function loadImages() {
+        resetPage();
+        fetchStainOptions();
+        const sourceRepositoryId = document.getElementById(
+          "source_repository_id"
+        ).value;
+        const selectedTemplateName =
+          document.getElementById("template-dropdown").value;
+        document.getElementById("load-images-loader").style.display =
+          "inline-block";
+        document.getElementById("image-table-container").style.display = "none";
+
+        fetch("/get_templates")
+          .then((response) => response.json())
+          .then((templates) => {
+            const templateData = templates[selectedTemplateName] || {};
+            fetch("/load_images_with_metadata", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: `source_repository_id=${encodeURIComponent(
+                sourceRepositoryId
+              )}&selected_template=${encodeURIComponent(selectedTemplateName)}`,
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                allImagesData = data;
+                // Store macro and label URLs for faster load in the no ocr form
+                data.forEach((image) => {
+                  imageUrls[image["Image ID"]] = {
+                    macroUrl: image["Macro URL"],
+                    labelUrl: image["Label URL"],
+                  };
+                });
+                initializeDataTable(data, templateData);
+                document.getElementById("image-table-container").style.display =
+                  "block";
+                document.getElementById(
+                  "perform-ocr-button-container"
+                ).style.display = "block";
+                document.getElementById("load-images-loader").style.display =
+                  "none";
+                document.querySelector("#image-table thead").style.display =
+                  "table-header-group";
+                if (!$("#image-table").parent().hasClass("scrolledTable")) {
+                  $("#image-table").wrap("<div class='scrolledTable'></div>");
+                }
+              })
+              .catch((error) => {
+                console.error("Error loading images:", error);
+                document.getElementById("load-images-loader").style.display =
+                  "none";
+              });
+          })
+          .catch((error) => {
+            console.error("Error fetching templates:", error);
+            document.getElementById("load-images-loader").style.display =
+              "none";
+          });
+      }
+
+      function initializeDataTable(data, selectedTemplate) {
+        $("#image-table thead").html("");
+
+        if (dataTable) {
+          dataTable.clear().destroy();
+        }
+
+        const columns = [
+          {
+            data: null,
+            defaultContent: "",
+            className: "select-checkbox",
+            orderable: false,
+            title: '<input type="checkbox" id="select-all">',
+          },
+          {
+            data: "Image Name",
+            title: "Image Name",
+            render: function (data) {
+              return data === "! Missing"
+                ? `<span class="missing-value">${data}</span>`
+                : data;
+            },
+          },
+          {
+            data: "Date",
+            title: "Date",
+            render: function (data, type, row) {
+              if (type === "sort") {
+                const parts = data.split("-");
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const year = parseInt(parts[2], 10);
+                return new Date(year, month, day).getTime();
+              }
+              return data;
+            },
+          },
+          { data: "Image ID", title: "Image ID" },
+          {
+            data: "Label URL",
+            title: "Label URL",
+            orderable: false,
+            render: function (data) {
+              return data === "! Missing"
+                ? `<span class="missing-value">${data}</span>`
+                : `<div class="resizable-img"><img data-src="${data}" alt="Image Label" class="image-label lazy" src=""></div>`;
+            },
+          },
+        ];
+
+        // If the selected template uses patient ID, add Folder ID and Patient ID columns
+        if (selectedTemplate.use_patient_id) {
+          columns.push(
+            { data: "Folder ID", title: "Folder ID" },
+            {
+              data: "Patient ID",
+              title: "Patient ID",
+              render: function (data) {
+                return data === "! Missing"
+                  ? `<span class="missing-value" style="color:red;">${data}</span>`
+                  : data;
+              },
+            }
+          );
+        }
+
+        // Add dynamic metadata columns defined in the template metadata
+        if (selectedTemplate.metadata) {
+          Object.keys(selectedTemplate.metadata).forEach((fieldId) => {
+            const fieldName = selectedTemplate.metadata[fieldId].name;
+            columns.push({
+              data: fieldName,
+              title: fieldName,
+              render: function (data) {
+                return data === "! Missing"
+                  ? `<span class="missing-value">${data}</span>`
+                  : data;
+              },
+            });
+          });
+        }
+
+        // Initialize the DataTable
+        dataTable = $("#image-table").DataTable({
+          data: data,
+          columns: columns,
+          paging: true,
+          pageLength: 10,
+          lengthChange: true,
+          searching: true,
+          dom: '<"top"f>rt<"bottom"lp><"clear">',
+          order: [[1, "asc"]],
+          select: {
+            style: "multi",
+            selector: "td.select-checkbox",
+          },
+          createdRow: function (row, rowData, dataIndex) {
+            $(row).attr("data-image-id", rowData["Image ID"]);
+          },
+          drawCallback: function () {
+            lazyLoadImages();
+          },
+        });
+
+        $("#select-all")
+          .off("click")
+          .on("click", function () {
+            if (this.checked) {
+              dataTable.rows({ search: "applied" }).select();
+            } else {
+              dataTable.rows({ search: "applied" }).deselect();
+            }
+          });
+
+        dataTable.on("select deselect", function () {
+          const allRows = dataTable.rows({ search: "applied" }).nodes().length;
+          const selectedRows = dataTable
+            .rows({ selected: true, search: "applied" })
+            .nodes().length;
+          $("#select-all").prop(
+            "checked",
+            allRows === selectedRows && allRows > 0
+          );
+        });
+
+            // When a row is deselected, remove the corresponding OCR form 
+            dataTable.on('deselect', function(e, dt, type, indexes) {
+                if (type === 'row') {
+                    indexes.forEach(function(index) {
+                        const rowData = dataTable.row(index).data();
+                        if (rowData && rowData['Image ID']) {
+                            const imageId = rowData['Image ID'];
+                            const ocrContainer = document.querySelector(`.image-row[data-image-id="${imageId}"]`);
+                            if (ocrContainer) {
+                                ocrContainer.remove();
+                            }
+                            processedImages.delete(imageId);
+                        }
+                    });
+                }
+            });
+
+            // Scroll to the top of the table when changing pages
+            dataTable.on('page.dt', function () {
+                $('.scrolledTable').animate({
+                    scrollTop: 0
+                }, 200);
+            });
+
+        }
+
+
+      function updateImageInfo(imageId, callback) {
+        console.log("Updating image info for image ID:", imageId);
+        const ocrContainer = document.querySelector(
+          `.image-row[data-image-id="${imageId}"]`
+        );
+        if (!ocrContainer) {
+          console.error(`OCR container not found for image ID: ${imageId}`);
+          if (callback) callback();
+          return;
+        }
+
+        const ocrResultsDiv = ocrContainer.querySelector(".ocr-results");
+        if (!ocrResultsDiv) {
+          console.error(`OCR results div not found for image ID: ${imageId}`);
+          if (callback) callback();
+          return;
+        }
+
+        // Gather updated metadata from the OCR form.
+        const metadata = {};
+        const ocrInputs = ocrResultsDiv.querySelectorAll(".ocr-input");
+        let imageNameChanged = false;
+        let newImageName = "";
+
+        ocrInputs.forEach((input) => {
+          const fieldId = input.getAttribute("data-field-id"); 
+          const checkbox = ocrResultsDiv.querySelector(
+            `.ocr-checkbox[data-field-id="${fieldId}"]`
+          );
+          if (checkbox && checkbox.checked) {
+            if (fieldId === "image-name") {
+              imageNameChanged = true;
+              newImageName = input.value;
+              console.log(`Image name to update: ${newImageName}`);
+            } else {
+              metadata[fieldId] = input.value;
+              console.log(`Field ${fieldId} updated to: ${input.value}`);
+            }
+          }
+        });
+
+        console.log("Collected metadata to be sent:", metadata);
+
+        const updateLoader = ocrResultsDiv.querySelector(".loader");
+        updateLoader.style.display = "inline-block";
+
+        // Prepare the update message element.
+        const updateMessage = ocrResultsDiv.querySelector(".update-message");
+        // Clear any previous message.
+        if (updateMessage) {
+          updateMessage.style.display = "none";
+          updateMessage.innerText = "";
+        }
+
+        // Function to update metadata on the server.
+        const updateMetadata = () => {
+          if (Object.keys(metadata).length > 0) {
+            return fetch("/update_metadata", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ image_id: imageId, metadata: metadata }),
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                console.log("Metadata update response:", data);
+                if (data.message === "Metadata updated successfully") {
+                  updatedImages.add(imageId);
+                  return true;
+                } else {
+                  return false;
+                }
+              })
+              .catch((error) => {
+                console.error("Error updating metadata:", error);
+                return false;
+              });
+          }
+          return Promise.resolve(true);
+        };
+
+        const updateImageName = () => {
+          if (imageNameChanged) {
+            return fetch("/update_image_name", {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: new URLSearchParams({
+                image_id: imageId,
+                new_name: newImageName,
+              }),
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                console.log("Image name update response:", data);
+                if (data.message === "Image name updated successfully") {
+                  updatedImages.add(imageId);
+                  return true;
+                } else {
+                  return false;
+                }
+              })
+              .catch((error) => {
+                console.error("Error updating image name:", error);
+                return false;
+              });
+          }
+          return Promise.resolve(true);
+        };
+
+        Promise.all([updateMetadata(), updateImageName()])
+          .then((results) => {
+            const success = results.every((r) => r === true);
+
+            let updatedFolderId = null;
+            // Update the corresponding row in the DataTable.
+            dataTable.rows().every(function () {
+              let rowData = this.data();
+              if (rowData["Image ID"] == imageId) {
+                let newRowData = Object.assign({}, rowData);
+                if (imageNameChanged) {
+                  newRowData["Image Name"] = newImageName;
+                }
+                Object.keys(metadata).forEach((fieldId) => {
+                  if (fieldId === "28") {
+                    newRowData["Patient ID"] = metadata[fieldId];
+                    updatedFolderId = newRowData["Folder ID"];
+                    if (newRowData.hasOwnProperty("28")) {
+                      delete newRowData["28"];
+                    }
+                  } else if (
+                    selectedTemplate &&
+                    selectedTemplate.metadata &&
+                    selectedTemplate.metadata[fieldId]
+                  ) {
+                    const mappedKey = selectedTemplate.metadata[fieldId].name;
+                    newRowData[mappedKey] = metadata[fieldId];
+                    if (newRowData.hasOwnProperty(fieldId)) {
+                      delete newRowData[fieldId];
+                    }
+                  } else {
+                    newRowData[fieldId] = metadata[fieldId];
+                  }
+                });
+                const rowIndex = this.index();
+                $("#image-table")
+                  .dataTable()
+                  .fnUpdate(newRowData, rowIndex, undefined, false);
+              }
+            });
+
+            // If field 28 (Patient ID) was updated, update all rows sharing the same Folder ID.
+            if (updatedFolderId !== null && metadata.hasOwnProperty("28")) {
+              dataTable.rows().every(function () {
+                let rData = this.data();
+                if (rData["Folder ID"] === updatedFolderId) {
+                  rData["Patient ID"] = metadata["28"];
+                  if (rData.hasOwnProperty("28")) {
+                    delete rData["28"];
+                  }
+                  this.data(rData);
+                }
+              });
+            }
+
+            // Redraw the table without resetting pagination.
+            $("#image-table").dataTable().fnDraw(false);
+
+            // Show success or failure message.
+            if (updateMessage) {
+              if (success) {
+                updateMessage.innerText = "✅ Image info updated";
+              } else {
+                updateMessage.innerText = "❌ Update failed";
+              }
+              updateMessage.style.display = "inline-block";
+              setTimeout(() => {
+                updateMessage.style.display = "none";
+              }, 10000);
+            }
+
+            updateLoader.style.display = "none";
+            if (callback) callback();
+          })
+          .catch(() => {
+            updateLoader.style.display = "none";
+            if (updateMessage) {
+              updateMessage.innerText = "❌ Update failed";
+              updateMessage.style.display = "inline-block";
+              setTimeout(() => {
+                updateMessage.style.display = "none";
+              }, 10000);
+            }
+            if (callback) callback();
+          });
+      }
+
+      function lazyLoadImages() {
+        $("#image-table tbody img.lazy").each(function () {
+          var img = $(this);
+          if (!img.attr("src")) {
+            img.attr("src", img.data("src"));
+            img.removeClass("lazy");
+          }
+        });
+      }
+
+      function updateFolderPatientIds(folderMetadataMap) {
+        const tbody = document.querySelector("#image-table tbody");
+        const updates = [];
+
+        tbody.querySelectorAll("tr").forEach((row) => {
+          const folderIdCell = row.querySelector("td:nth-child(5)");
+          const folderId = folderIdCell ? folderIdCell.innerText.trim() : null;
+
+          if (
+            folderId &&
+            folderMetadataMap[folderId] &&
+            folderMetadataMap[folderId]["28"]
+          ) {
+            const patientIdCell = row.querySelector("td.metadata-28");
+            if (patientIdCell) {
+              updates.push({
+                cell: patientIdCell,
+                value: folderMetadataMap[folderId]["28"],
+              });
+            }
+          }
+        });
+
+        updates.forEach(({ cell, value }) => {
+          cell.innerText = value;
+        });
+      }
+
+      function goToSettings() {
+        window.location.href = "/settings";
+      }
+
+      function performOCR() {
+        const useOCR = document.getElementById("use-ocr-checkbox").checked;
+        const selectedData = dataTable
+          .rows({ selected: true })
+          .data()
+          .toArray();
+        const selectedImages = selectedData.map((row) => row["Image ID"]);
+
+        if (selectedImages.length === 0) {
+          alert("Please select at least one image.");
+          return;
+        }
+
+        document.getElementById("ocr-loader").style.display = "inline-block";
+
+        let completedOCRs = 0;
+        selectedImages.forEach((imageId) => {
+          const imageRow = document.querySelector(
+            `#image-table tbody tr[data-image-id="${imageId}"]`
+          );
+          if (!imageRow) {
+            console.error(
+              `Row for image ID ${imageId} not found in the table.`
+            );
+          }
+
+          if (!processedImages.has(imageId)) {
+            if (useOCR) {
+              fetch("/perform_ocr", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: `image_id=${encodeURIComponent(imageId)}`,
+              })
+                .then((response) => response.json())
+                .then((data) => {
+                  if (data.data) {
+                    // Retrieve stored URLs from the imageUrls object
+                    const macroUrl = imageUrls[imageId].macroUrl;
+                    const labelUrl = imageUrls[imageId].labelUrl;
+                    displayOCRResults(imageId, data.data);
+                    processedImages.add(imageId);
+                  }
+                  completedOCRs++;
+                  if (completedOCRs === selectedImages.length) {
+                    document.getElementById("ocr-loader").style.display =
+                      "none";
+                    document.getElementById(
+                      "update-all-button-container"
+                    ).style.display = "block";
+                  }
+                })
+                .catch((error) => {
+                  console.error("Error performing OCR:", error);
+                  completedOCRs++;
+                  if (completedOCRs === selectedImages.length) {
+                    document.getElementById("ocr-loader").style.display =
+                      "none";
+                    document.getElementById(
+                      "update-all-button-container"
+                    ).style.display = "block";
+                  }
+                });
+            } else {
+              displayOCRResults(imageId, []);
+              processedImages.add(imageId);
+              completedOCRs++;
+              if (completedOCRs === selectedImages.length) {
+                document.getElementById("ocr-loader").style.display = "none";
+                document.getElementById(
+                  "update-all-button-container"
+                ).style.display = "block";
+              }
+            }
+          } else {
+            completedOCRs++;
+            if (completedOCRs === selectedImages.length) {
+              document.getElementById("ocr-loader").style.display = "none";
+              document.getElementById(
+                "update-all-button-container"
+              ).style.display = "block";
+            }
+          }
+        });
+      }
+
+      function displayOCRResults(imageId, data) {
+        let ocrContainer = document.querySelector(
+          `.image-row[data-image-id="${imageId}"]`
+        );
+        if (!ocrContainer) {
+          ocrContainer = document.createElement("div");
+          ocrContainer.classList.add("image-row");
+          ocrContainer.setAttribute("data-image-id", imageId);
+          document
+            .getElementById("ocr-results-container")
+            .appendChild(ocrContainer);
+        }
+
+        const imageRow = document.querySelector(
+          `#image-table tbody tr[data-image-id="${imageId}"]`
+        );
+        if (!imageRow) {
+          console.error(`Row for image ID ${imageId} not found.`);
+          return;
+        }
+
+        const imageTitleCell = imageRow.querySelector("td:nth-child(2)");
+        const imageTitle = imageTitleCell
+          ? imageTitleCell.innerText
+          : "Unknown Image";
+        const macroUrl = imageUrls[imageId].macroUrl;
+        const labelUrl = imageUrls[imageId].labelUrl;
+
+        ocrContainer.innerHTML = `
+                <div class="image-title">Image: ${imageTitle}</div>
+                <div class="content-container" style="display: flex; gap: 20px; align-items: flex-start;">
+                    <img src="${macroUrl}" alt="Macro Image" style="max-width: 400px; max-height: 200px; margin-right: 20px;">
+                    <div class="mini-table-container">
+                        <table class="mini-table">
+                            <thead>
+                                <tr>
+                                    <th>Metadata</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mini-table-body-${imageId}">
+                                <!-- Mini table rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <img src="${labelUrl}" alt="Label Image" class="rotatable" style="max-width: 300px; max-height: 300px; image-orientation: none; margin-right: 20px;">
+                    <div class="ocr-table-container">
+                        <table class="ocr-table">
+                            <thead>
+                                <tr>
+                                    <th>OCR Prediction</th>
+                                    <th>Precision</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="ocr-results-container form-container">
+                    <div class="ocr-results"></div>
+                </div>
+                <div class="instructions" style="margin-top:20px; font-style: italic; color: #555;">
+                    <p>
+                        To update a metadata field, please check its respective checkbox and then press "Update Image Info".
+                        The folder feature allows you to move the image to a specific folder/case (or create it if it doesn't exist) 
+                        within a designated repository.
+                    </p>
+                </div>
+            `;
+
+        // Populate the OCR table with predictions
+        const ocrTable = ocrContainer.querySelector(".ocr-table tbody");
+        data.forEach((item) => {
+          const text = item.text;
+          const score = item.score;
+          const tr = document.createElement("tr");
+
+          const textCell = document.createElement("td");
+          textCell.innerText = text;
+          textCell.onclick = () => copyToClipboard(text);
+          tr.appendChild(textCell);
+
+          const precisionCell = document.createElement("td");
+          precisionCell.innerText = score ? score.toFixed(2) : "N/A";
+          if (score >= 0.95) {
+            precisionCell.classList.add("high-precision");
+          } else if (score >= 0.9) {
+            precisionCell.classList.add("medium-precision");
+          } else {
+            precisionCell.classList.add("low-precision");
+          }
+          tr.appendChild(precisionCell);
+          ocrTable.appendChild(tr);
+        });
+
+        const metadataMap = {};
+        const cells = imageRow.querySelectorAll("td");
+        cells.forEach((cell, index) => {
+          if (index !== 0) {
+            const headerCell = document.querySelector(
+              `#image-table thead th:nth-child(${index + 1})`
+            );
+            const fieldName = headerCell ? headerCell.innerText : "";
+            metadataMap[fieldName] = cell.innerText;
+          }
+        });
+
+        createOCRFields(ocrContainer, imageId, data, metadataMap);
+
+        const labelImage = ocrContainer.querySelector(".rotatable");
+        labelImage.addEventListener("click", () => {
+          const currentRotation = labelImage.dataset.rotation || 0;
+          labelImage.style.transform = `rotate(${currentRotation + 90}deg)`;
+          labelImage.dataset.rotation = (currentRotation + 90) % 360;
+        });
+
+        populateMiniTable(imageId);
+      }
+
+      function createOCRFields(ocrContainer, imageId, data, metadataMap) {
+        const ocrResultsDiv = ocrContainer.querySelector(".ocr-results");
+        const metadata = extractMetadataFromOCR(data);
+
+        if (selectedTemplate) {
+          Object.keys(selectedTemplate.metadata).forEach((fieldId) => {
+            const fieldName = selectedTemplate.metadata[fieldId].name;
+            let fieldValue = metadata[fieldId] || "";
+
+            if (!document.getElementById("use-ocr-checkbox").checked) {
+              fieldValue = metadataMap[fieldName] || "";
+            }
+            // Make sure we never prefill with "! Missing"
+            if (fieldValue.trim() === "! Missing") {
+              fieldValue = "";
+            }
+
+
+            const fieldGroup = document.createElement("div");
+            fieldGroup.classList.add("field-group");
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.classList.add("ocr-checkbox");
+            checkbox.setAttribute("data-field-id", fieldId);
+            checkbox.setAttribute("data-image-id", imageId);
+            fieldGroup.appendChild(checkbox);
+
+            const label = document.createElement("label");
+            label.innerText = fieldName;
+            fieldGroup.appendChild(label);
+
+            if (fieldName.toLowerCase() === "stain") {
+              const select = document.createElement("select");
+              select.classList.add("ocr-input");
+              select.setAttribute("data-field-id", fieldId);
+              select.setAttribute("data-image-id", imageId);
+
+              Object.keys(stainOptions).forEach((optionId) => {
+                const option = document.createElement("option");
+                option.value = stainOptions[optionId];
+                option.text = stainOptions[optionId];
+                select.appendChild(option);
+              });
+
+              // Set the selected value for the stain dropdown
+              const stainValue = fieldValue.replace(/^\s+/, "") || "";
+              select.value = stainValue;
+              fieldGroup.appendChild(select);
+
+              // event listener to update image name
+              select.addEventListener("change", () => updateImageName(imageId));
+            } else {
+              const input = document.createElement("input");
+              input.type = "text";
+              input.value = fieldValue;
+              input.classList.add("ocr-input");
+              input.setAttribute("data-field-id", fieldId);
+              input.setAttribute("data-image-id", imageId);
+              fieldGroup.appendChild(input);
+
+              input.addEventListener("input", () => updateImageName(imageId));
+
+              if (fieldId === "29") {
+                input.addEventListener("input", () =>
+                  updateModalAccessionField(imageId, input.value)
+                );
+              }
+            }
+
+            ocrResultsDiv.appendChild(fieldGroup);
+          });
+        }
+
+        if (usePatientId) {
+          const patientIdFieldGroup = document.createElement("div");
+          patientIdFieldGroup.classList.add("field-group");
+
+          const patientIdCheckbox = document.createElement("input");
+          patientIdCheckbox.type = "checkbox";
+          patientIdCheckbox.classList.add("ocr-checkbox");
+          patientIdCheckbox.setAttribute("data-field-id", "28");
+          patientIdCheckbox.setAttribute("data-image-id", imageId);
+          patientIdFieldGroup.appendChild(patientIdCheckbox);
+
+          const patientIdLabel = document.createElement("label");
+          patientIdLabel.innerText = "Patient ID";
+          patientIdFieldGroup.appendChild(patientIdLabel);
+
+          const patientIdInput = document.createElement("input");
+          patientIdInput.type = "text";
+          patientIdInput.value =
+            metadata[28] || metadataMap["Patient ID"] || "";
+          patientIdInput.classList.add("ocr-input");
+          patientIdInput.setAttribute("data-field-id", "28");
+          patientIdInput.setAttribute("data-image-id", imageId);
+          patientIdFieldGroup.appendChild(patientIdInput);
+
+          patientIdInput.addEventListener("input", () =>
+            updateImageName(imageId)
+          );
+
+          ocrResultsDiv.appendChild(patientIdFieldGroup);
+        }
+
+        if (useImageName) {
+          const imageNameFieldGroup = document.createElement("div");
+          imageNameFieldGroup.classList.add("field-group");
+
+          const imageNameCheckbox = document.createElement("input");
+          imageNameCheckbox.type = "checkbox";
+          imageNameCheckbox.classList.add("ocr-checkbox");
+          imageNameCheckbox.setAttribute("data-field-id", "image-name");
+          imageNameCheckbox.setAttribute("data-image-id", imageId);
+          imageNameFieldGroup.appendChild(imageNameCheckbox);
+
+          const imageNameLabel = document.createElement("label");
+          imageNameLabel.innerText = "Image Name";
+          imageNameFieldGroup.appendChild(imageNameLabel);
+
+          const imageNameInput = document.createElement("input");
+          imageNameInput.type = "text";
+
+          // Generate Image Name using the naming pattern
+          const namingPattern = selectedTemplate.naming_pattern;
+          let imageName = namingPattern;
+
+          Object.keys(selectedTemplate.metadata).forEach((fieldId) => {
+            const fieldName = selectedTemplate.metadata[fieldId].name;
+            const placeholder = `[${fieldName}]`;
+            let fieldValue = metadata[fieldId] || metadataMap[fieldName] || "";
+            if (fieldValue.trim() === "! Missing") {
+              fieldValue = "";
+            }
+            imageName = imageName.replace(placeholder, fieldValue);
+          });
+
+          // Add protocol prefix if available
+          const protocolValue = metadata["146"] || "";
+          if (protocolValue) {
+            const protocolDetails = selectedTemplate.protocols[protocolValue];
+            if (protocolDetails && protocolDetails.prefix) {
+              imageName = protocolDetails.prefix + " " + imageName;
+            }
+          }
+
+          imageNameInput.value = imageName.trim();
+          imageNameInput.classList.add("ocr-input");
+          imageNameInput.setAttribute("data-field-id", "image-name");
+          imageNameInput.setAttribute("data-image-id", imageId);
+          imageNameFieldGroup.appendChild(imageNameInput);
+
+          ocrResultsDiv.appendChild(imageNameFieldGroup);
+        }
+
+        const updateButton = document.createElement("button");
+        updateButton.innerText = "Update Image Info";
+        updateButton.classList.add("update-all-button");
+        updateButton.onclick = () => updateSingleImage(imageId);
+        ocrResultsDiv.appendChild(updateButton);
+
+        const updateLoader = document.createElement("div");
+        updateLoader.classList.add("loader");
+        updateLoader.style.display = "none";
+        ocrResultsDiv.appendChild(updateLoader);
+
+        const updateMessage = document.createElement("span");
+        updateMessage.classList.add("update-message");
+        updateMessage.style.display = "none";
+        updateMessage.innerText = "✅ Image info updated";
+        ocrResultsDiv.appendChild(updateMessage);
+
+        const moveToFolderIcon = document.createElement("i");
+        moveToFolderIcon.classList.add(
+          "fa-solid",
+          "fa-folder",
+          "fa-2xl",
+          "move-to-folder-button"
+        );
+        moveToFolderIcon.style.color = "#1a83e4";
+        moveToFolderIcon.style.top = "-300px";
+        moveToFolderIcon.onclick = () => openModal(imageId);
+
+        const formContainer = ocrContainer.querySelector(".form-container");
+        formContainer.appendChild(moveToFolderIcon);
+
+        const modal = document.createElement("div");
+        modal.classList.add("modal");
+        modal.style.display = "none";
+        modal.setAttribute("data-image-id", imageId);
+
+        const modalContent = document.createElement("div");
+        modalContent.classList.add("modal-content");
+
+        const closeButton = document.createElement("span");
+        closeButton.classList.add("close-button");
+        closeButton.innerText = "×";
+        closeButton.onclick = () => closeModal(imageId);
+        modalContent.appendChild(closeButton);
+
+        const form = document.createElement("form");
+        form.id = "moveToFolderForm-" + imageId;
+        form.style.display = "flex";
+        form.style.flexDirection = "column";
+
+        const repoIdLabel = document.createElement("label");
+        repoIdLabel.innerText = "Repo ID:";
+        form.appendChild(repoIdLabel);
+
+        const repoIdInput = document.createElement("input");
+        repoIdInput.type = "text";
+        repoIdInput.id = "repoId-" + imageId;
+        repoIdInput.name = "repoId";
+        form.appendChild(repoIdInput);
+
+        const folderNameLabel = document.createElement("label");
+        folderNameLabel.innerText = "Folder Name:";
+        form.appendChild(folderNameLabel);
+
+        const folderNameInput = document.createElement("input");
+        folderNameInput.type = "text";
+        folderNameInput.id = "folderName-" + imageId;
+        folderNameInput.name = "folderName";
+        form.appendChild(folderNameInput);
+
+        const actionRow = document.createElement("div");
+        actionRow.style.display = "flex";
+        actionRow.style.justifyContent = "space-between";
+        actionRow.style.alignItems = "center";
+
+        const caseCheckboxLabel = document.createElement("label");
+        caseCheckboxLabel.innerText = "Case:";
+        actionRow.appendChild(caseCheckboxLabel);
+
+        const caseCheckbox = document.createElement("input");
+        caseCheckbox.type = "checkbox";
+        caseCheckbox.id = "caseCheckbox-" + imageId;
+        caseCheckbox.name = "caseCheckbox";
+        caseCheckbox.checked = true;
+        actionRow.appendChild(caseCheckbox);
+
+        const submitButton = document.createElement("button");
+        submitButton.type = "button";
+        submitButton.innerText = "Move to Folder";
+        submitButton.onclick = () => handleFormSubmit(imageId);
+        actionRow.appendChild(submitButton);
+
+        form.appendChild(actionRow);
+
+        modalContent.appendChild(form);
+        modal.appendChild(modalContent);
+        ocrResultsDiv.appendChild(modal);
+
+        const sourceRepoIdInput = document.getElementById(
+          "source_repository_id"
+        );
+        if (sourceRepoIdInput) {
+          repoIdInput.value = sourceRepoIdInput.value;
+        }
+
+        const accessionValue = metadata[29] || metadataMap["Accession"] || "";
+        folderNameInput.value = accessionValue;
+
+        function openModal(imageId) {
+          const modal = document.querySelector(
+            `.modal[data-image-id="${imageId}"]`
+          );
+          if (modal) {
+            modal.style.display = "block";
+          }
+        }
+
+        function closeModal(imageId) {
+          const modal = document.querySelector(
+            `.modal[data-image-id="${imageId}"]`
+          );
+          if (modal) {
+            modal.style.display = "none";
+          }
+        }
+
+        async function handleFormSubmit(imageId) {
+          const repoIdInput = document.getElementById("repoId-" + imageId);
+          const folderNameInput = document.getElementById(
+            "folderName-" + imageId
+          );
+          const caseCheckbox = document.getElementById(
+            "caseCheckbox-" + imageId
+          );
+
+          const repoId = repoIdInput.value.trim();
+          const folderName = folderNameInput.value.trim();
+          const isCase = caseCheckbox.checked;
+
+          if (!repoId || !folderName) {
+            alert("Repo ID and Folder Name are required.");
+            return;
+          }
+
+          console.log("Image ID:", imageId);
+          console.log("Repo ID:", repoId);
+          console.log("Folder Name:", folderName);
+          console.log("Is Case:", isCase);
+
+          try {
+            const response = await fetch("/update_image_folder", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: new URLSearchParams({
+                image_id: imageId,
+                repository_id: repoId,
+                folder_name: folderName,
+                is_case: isCase,
+              }),
+            });
+
+            if (response.ok) {
+              const result = await response.json();
+              console.log("Success:", result);
+              alert("Image folder updated successfully.");
+            } else {
+              console.error("Error:", response.statusText);
+              alert("Failed to update image folder.");
+            }
+          } catch (error) {
+            console.error("Error:", error);
+            alert("An error occurred while updating the image folder.");
+          }
+
+          closeModal(imageId);
+        }
+
+        function updateModalAccessionField(imageId, value) {
+          const folderNameInput = document.getElementById(
+            "folderName-" + imageId
+          );
+          if (folderNameInput) {
+            folderNameInput.value = value;
+          }
+        }
+
+        function updateImageName(imageId) {
+          const ocrContainer = document.querySelector(
+            `.image-row[data-image-id="${imageId}"]`
+          );
+          const imageNameInput = ocrContainer.querySelector(
+            '.ocr-input[data-field-id="image-name"]'
+          );
+          const namingPattern = selectedTemplate.naming_pattern;
+          let imageName = namingPattern;
+
+          Object.keys(selectedTemplate.metadata).forEach((fieldId) => {
+            const fieldName = selectedTemplate.metadata[fieldId].name;
+            const placeholder = `[${fieldName}]`;
+            const fieldValue =
+              ocrContainer.querySelector(
+                `.ocr-input[data-field-id="${fieldId}"]`
+              )?.value || "";
+            imageName = imageName.replace(placeholder, fieldValue);
+          });
+
+          const protocolValue = ocrContainer.querySelector(
+            `.ocr-input[data-field-id="146"]`
+          )?.value;
+          if (protocolValue) {
+            const protocolDetails = selectedTemplate.protocols[protocolValue];
+            if (protocolDetails && protocolDetails.prefix) {
+              imageName = protocolDetails.prefix + ' ' + imageName;
+            }
+          }
+
+          imageNameInput.value = imageName.trim();
+        }
+      }
+
+      function extractMetadataFromOCR(data) {
+        const metadata = {};
+        const ocrLines = data.map((item) => item.text);
+        let protocolDetails = null;
+
+        if (selectedTemplate) {
+          Object.keys(selectedTemplate.metadata).forEach((fieldId) => {
+            const fieldName = selectedTemplate.metadata[fieldId].name;
+            const rowIndex = selectedTemplate.metadata[fieldId].row - 1;
+
+                    if (rowIndex >= 0 && rowIndex < ocrLines.length) {
+                        const lineValue = ocrLines[rowIndex].trim();
+
+                        if (lineValue === "! Missing") {
+                            metadata[fieldId] = '';
+                            return; // Skip to the next field.
+                        }
+
+                        // Special extraction for field ID 146 (protocol)
+                        if (fieldId === '146') {
+                            const match = lineValue.match(/^(U\d{2,})/);
+                            if (match) {
+                                metadata[fieldId] = match[1];
+                                protocolDetails = selectedTemplate.protocols[match[1]];
+                            } else {
+                                metadata[fieldId] = lineValue;
+                            }
+                        }
+                        // Extraction for Accession or Container fields
+                        else if (fieldName.toLowerCase() === 'accession' || fieldName.toLowerCase() === 'container') {
+                            const match = lineValue.match(/^(\d{10})-(\d{2})$/);
+                            if (match) {
+                                metadata["29"] = match[1];
+                                metadata["30"] = match[2];
+                            } else {
+                                metadata[fieldId] = lineValue;
+                            }
+                        }
+                        // Default extraction: use the entire OCR prediction
+                        else {
+                            metadata[fieldId] = lineValue;
+                        }
+                    }
+                    else if (rowIndex === -1) {
+                        // If the row index is -1 and the field is "stain", use a best-match function.
+                        if (fieldName.toLowerCase() === 'stain') {
+                            const stainValue = getBestMatchingStain(ocrLines);
+                            metadata[fieldId] = (stainValue && stainValue !== "! Missing") ? stainValue : '';
+                        }
+                    }
+                });
+            }
+
+            // Extract Patient ID from row 3 or 4 if usePatientId is true.
+            if (ocrLines.length > 3 && usePatientId) {
+                for (let i = 2; i <= 3; i++) {
+                    const patientId = ocrLines[i].trim();
+                    if (!patientId.includes('.') && (/^[A-Za-z]/.test(patientId) || /^\d+/.test(patientId))) {
+                        metadata["28"] = (patientId === "! Missing") ? '' : patientId;
+                        if (patientId !== "! Missing") break;
+                    }
+                }
+            }
+
+        // Override Stain and Clone with protocol details if found
+        if (protocolDetails) {
+          metadata["31"] = protocolDetails.stain;
+          metadata["48"] = protocolDetails.clone;
+        }
+
+        // Generate Image Name based on naming pattern
+        const namingPattern = selectedTemplate.naming_pattern;
+        let imageName = namingPattern;
+        Object.keys(selectedTemplate.metadata).forEach((fieldId) => {
+          const fieldName = selectedTemplate.metadata[fieldId].name;
+          const placeholder = `[${fieldName}]`;
+          // Use the value from metadata if present
+          const fieldValue = metadata[fieldId] || "";
+          imageName = imageName.replace(placeholder, fieldValue);
+        });
+        // Add prefix to the image name if protocol is found
+        if (protocolDetails && protocolDetails.prefix) {
+          imageName = protocolDetails.prefix + ' ' + imageName;
+        }
+        console.log("Generated image name:",imageName)
+        metadata["image-name"] = imageName.trim();
+        
+
+        return metadata;
+      }
+
+      function getBestMatchingStain(ocrLines) {
+        const stains = Object.values(stainOptions);
+        let bestMatch = null;
+        let highestScore = 0;
+
+        for (let line of ocrLines) {
+          line = line.toLowerCase();
+
+          for (let stain of stains) {
+            const score = fuzzyMatchScore(line, stain.toLowerCase());
+
+            if (score > highestScore) {
+              highestScore = score;
+              bestMatch = stain;
+            }
+          }
+        }
+
+        return bestMatch;
+      }
+
+      // Updated fuzzy substring matching function
+      function fuzzyMatchScore(text, stain) {
+        let score = 0;
+
+        if (text.includes(stain)) {
+          score += stain.length / text.length;
+        }
+
+        // Handle small variations (e.g., missing spaces, lowercase "h&e", etc.)
+        const normalizedText = text.replace(/\W+/g, "").toLowerCase(); // Remove non-alphanumeric characters
+        const normalizedStain = stain.replace(/\W+/g, "").toLowerCase();
+
+        if (normalizedText.includes(normalizedStain)) {
+          score += 1; // Boost score if normalized match is found
+        }
+
+        return score;
+      }
+
+      function updateAllImages() {
+        const selectedData = dataTable
+          .rows({ selected: true })
+          .data()
+          .toArray();
+        const selectedImages = selectedData.map((row) => row["Image ID"]);
+        const updateAllLoader = document.getElementById("update-all-loader");
+        updateAllLoader.style.display = "inline-block";
+
+        let completedUpdates = 0;
+
+        if (selectedImages.length === 0) {
+          updateAllLoader.style.display = "none";
+          return;
+        }
+
+        selectedImages.forEach((imageId) => {
+          updateImageInfo(imageId, () => {
+            completedUpdates++;
+            if (completedUpdates === selectedImages.length) {
+              updateAllLoader.style.display = "none";
+            }
+          });
+        });
+      }
+
+      function updateSingleImage(imageId) {
+        const updateLoader = document.querySelector(
+          `.image-row[data-image-id="${imageId}"] .loader`
+        );
+        if (updateLoader) updateLoader.style.display = "inline-block";
+
+        updateImageInfo(imageId, () => {
+          if (updateLoader) updateLoader.style.display = "none";
+        });
+      }
+
+      function copyToClipboard(text) {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      function populateMiniTable(imageId) {
+        const miniTableBody = document.getElementById(
+          `mini-table-body-${imageId}`
+        );
+        if (!miniTableBody) {
+          console.error(
+            `populateMiniTable: Mini table body for image ID ${imageId} not found.`
+          );
+          return;
+        }
+
+        const rowData = dataTable.row(`tr[data-image-id="${imageId}"]`).data();
+
+        miniTableBody.innerHTML = "";
+        //column we dont want in our minitable
+        const skipKeys = ["SelectAll", "Label URL", "Macro URL", "Image ID"];
+
+        if (rowData) {
+          Object.keys(rowData).forEach((key) => {
+            if (skipKeys.includes(key)) return;
+            const value = rowData[key];
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td>${key}</td><td>${value}</td>`;
+            miniTableBody.appendChild(tr);
+          });
+        } else {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td colspan="2">No metadata available</td>`;
+          miniTableBody.appendChild(tr);
+        }
+      }
+
+      function fetchStainOptions() {
+        fetch("/get_stain_options")
+          .then((response) => response.json())
+          .then((data) => {
+            stainOptions = data;
+          })
+          .catch((error) => {
+            console.error("Error fetching stain options:", error);
+          });
+      }
+
+      function populateStainOptions(imageId) {
+        const select = document.getElementById(`stain_${imageId}`);
+        select.innerHTML = '<option value="">Select Stain</option>';
+        for (const [key, value] of Object.entries(stainOptions)) {
+          const option = document.createElement("option");
+          option.value = key;
+          option.text = value;
+          select.appendChild(option);
+        }
+      }
+
+      function loadTemplate() {
+        resetPage();
+        const selectedTemplateName =
+          document.getElementById("template-dropdown").value;
+        if (selectedTemplateName) {
+          fetch("/get_templates")
+            .then((response) => response.json())
+            .then((data) => {
+              selectedTemplate = data[selectedTemplateName];
+              console.log(
+                `Selected template: ${selectedTemplateName}`,
+                selectedTemplate
+              );
+
+              // Set usePatientId and useImageName based on template configuration
+              usePatientId = selectedTemplate.use_patient_id;
+              useImageName = selectedTemplate.use_image_name;
+              addMetadataColumnsToTable(selectedTemplate.metadata);
+            });
+        }
+      }
+
+      function addMetadataColumnsToTable(metadata) {
+        const thead = document.querySelector("#image-table thead tr");
+        // Remove existing metadata columns
+        document
+          .querySelectorAll("#image-table th.metadata-column")
+          .forEach((th) => th.remove());
+        document
+          .querySelectorAll("#image-table td.metadata-column")
+          .forEach((td) => td.remove());
+        Object.keys(metadata).forEach((fieldId) => {
+          const fieldName = metadata[fieldId].name;
+          const th = document.createElement("th");
+          th.innerText = fieldName;
+          th.classList.add("metadata-column");
+          thead.appendChild(th);
+        });
+        if (dataTable) {
+          initializeDataTable(allImagesData);
+        }
+      }
+
+      function populateTemplateDropdown() {
+        fetch("/get_templates")
+          .then((response) => response.json())
+          .then((data) => {
+            const dropdown = document.getElementById("template-dropdown");
+            let defaultOptionSet = false;
+            Object.keys(data).forEach((templateName) => {
+              const option = document.createElement("option");
+              option.value = templateName;
+              option.innerText = templateName;
+              dropdown.appendChild(option);
+              if (templateName === "Rename" && !defaultOptionSet) {
+                option.selected = true;
+                defaultOptionSet = true;
+              }
+            });
+            if (defaultOptionSet) {
+              loadTemplate();
+            }
+          });
+      }
+
+      function sortTable(columnIndex) {
+        const table = document.getElementById("image-table");
+        const tbody = table.querySelector("tbody");
+        const rows = Array.from(tbody.querySelectorAll("tr"));
+
+        // Toggle sort direction
+        sortDirection *= -1;
+
+        rows.sort((a, b) => {
+          const cellA = a.querySelectorAll("td")[columnIndex].innerText;
+          const cellB = b.querySelectorAll("td")[columnIndex].innerText;
+          if (cellA < cellB) return -1 * sortDirection;
+          if (cellA > cellB) return 1 * sortDirection;
+          return 0;
+        });
+
+        tbody.innerHTML = "";
+        rows.forEach((row) => tbody.appendChild(row));
+
+        document.querySelectorAll(".image-checkbox").forEach((cb, index) => {});
+
+        // rebind the sort for shift-click
+        bindCheckboxEvents();
+      }
+
+      // function the rebind each checkbox to its new index after sorting
+      function bindCheckboxEvents() {
+        let lastChecked = null;
+
+        document.querySelectorAll(".image-checkbox").forEach((checkbox) => {
+          checkbox.replaceWith(checkbox.cloneNode(true));
+        });
+
+        const checkboxes = document.querySelectorAll(".image-checkbox");
+
+        checkboxes.forEach((checkbox) => {
+          checkbox.addEventListener("click", function (e) {
+            if (!lastChecked) {
+              lastChecked = this;
+
+              return;
+            }
+
+            if (e.shiftKey) {
+              const currentCheckboxes = Array.from(
+                document.querySelectorAll(".image-checkbox")
+              );
+
+              let start = currentCheckboxes.indexOf(this);
+              let end = currentCheckboxes.indexOf(lastChecked);
+
+              currentCheckboxes.forEach((cb, i) => {
+                if (i >= Math.min(start, end) && i <= Math.max(start, end)) {
+                  cb.checked = lastChecked.checked;
+                }
+              });
+            }
+
+            lastChecked = this;
+          });
+        });
+      }
+
+      window.onload = function () {
+        populateTemplateDropdown();
+        bindCheckboxEvents();
+
+        // Add event listener for "Enter" key press
+        document
+          .getElementById("source_repository_id")
+          .addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              document.getElementById("load-images-button").click();
+            }
+          });
+      };
+    </script>
+  </body>
+</html>

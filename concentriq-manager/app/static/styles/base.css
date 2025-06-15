@@ -1,0 +1,112 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  background-color: #f4f4f9;
+  color: #333;
+}
+
+h1 {
+  color: #444;
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+form {
+  margin-bottom: 20px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+th {
+  background-color: #f2f2f2;
+}
+
+.error {
+  color: red;
+}
+
+.success {
+  color: green;
+}
+
+form {
+  margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+form label {
+  font-size: 16px;
+}
+form input[type="text"] {
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  flex: 1;
+}
+
+.base-button {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+.base-button button {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+.base-button button:hover {
+  background-color: #0056b3;
+}
+
+input[type="submit"] {
+  display: flex;
+  justify-content: center;
+  margin-left: 5px;
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+input[type="submit"]:hover {
+  background-color: #0056b3;
+}
+
+div.single-button {
+  margin-top: 10px;
+}
+
+.return-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.return-container select,
+.return-container button {
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid rgb(215, 199, 199);
+  border-radius: 5px;
+}

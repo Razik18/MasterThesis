@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Order&ViewOnly</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{{ url_for('static',filename='styles/order.css') }}"
+    />
+    <link
+      rel="shortcut icon"
+      href="{{ url_for('static', filename='images/labcorp.ico') }}"
+    />
+  </head>
+  <body>
+    <!--Title -->
+    <h1>Change Order&ViewOnly for Metadata Fields</h1>
+    <p>
+      This page allows to change order of Metadata Fields for a repository and
+      change some metadata field to viewOnly or Study.
+    </p>
+    <p>
+      Note: content type is the level at which the metadata field is assigned
+      (image, repository/ImageSet, folder/case)<br />
+      Note: You can directly use check box to change viewOnly or Study status of
+      metadata fields. An metadata field is either in viewOnly or in Study or in
+      editing (normal) mode.
+    </p>
+
+    <!-- Get Repository id from user -->
+    <form action="{{ url_for('orderviewonly.updatetable') }}" method="POST">
+      <div id="horizontal-button-container">
+        <label for="source_repository_id">Enter Source Repository ID: </label>
+        <input
+          type="text"
+          id="source_repository_id"
+          name="source_repository_id"
+          required
+          value="{{repository_id}}"
+        />
+        <input type="submit" value="Load Image fields" name="loadImageField" />
+        <input
+          type="submit"
+          value="Load Folder Fields"
+          name="loadFolderField"
+        />
+        <input
+          type="submit"
+          value="Load ImageSet Fields"
+          name="loadImageSetField"
+        />
+      </div>
+    </form>
+
+    <!-- Setting button (hidden for now)-->
+    <div class="dropdown-container" style="display: none">
+      <button class="settings-button" onclick="goToSettings()">⚙️</button>
+    </div>
+
+    <!-- Return button -->
+    <div class="return-container">
+      <button onclick="window.location.href='/main';">Main Menu</button>
+    </div>
+
+    <!-- Status indicator (to show flash message) -->
+    {% with messages = get_flashed_messages(with_categories=true) %} {% if
+    messages %}
+    <div class="flash-msg">
+      {% for category, msg in messages %}
+      <div class="{{ category }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+    {% endif %} {% endwith %}
+
+    <!-- Metadata Fields Table (hidden by default) -->
+    <div id="table-container">
+      {% if repository_text %}
+      <h1>Metadata Fields {{repository_text}}</h1>
+      {% endif %} {% if metadata_fields %}
+      <table id="table">
+        <thead>
+          <tr>
+            <th>checkbox</th>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Content Type</th>
+            <th>Order</th>
+            <th>ViewOnly</th>
+            <th>Study</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for metadata_field in metadata_fields %}
+          <tr>
+            <td>
+              <input
+                type="checkbox"
+                name="selected_metadata_field"
+                value="{{ metadata_field.id }}"
+              />
+            </td>
+            <td>{{ metadata_field.id }}</td>
+            <td>{{ metadata_field.name }}</td>
+            <td>{{ metadata_field.content_type }}</td>
+            <td>{{ metadata_field.order }}</td>
+
+            <td>
+              <input
+                type="checkbox"
+                name="viewonly"
+                value="{{ metadata_field.id }}"
+                {%
+                if
+                metadata_field.viewonly
+                %}
+                checked
+                {%
+                endif
+                %}
+                onchange="UpdateViewOnly(this)"
+              />
+            </td>
+
+            <td>
+              <input
+                type="checkbox"
+                name="study"
+                value="{{ metadata_field.id }}"
+                {%
+                if
+                metadata_field.study
+                %}
+                checked
+                {%
+                endif
+                %}
+                onchange="UpdateStudy(this)"
+              />
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p>Any images loaded yet.</p>
+      {% endif %}
+    </div>
+
+    {% if repository_text %}
+    <h1>Order and ViewOnly modification buttons</h1>
+    {% endif %}
+
+    <!-- Templates Order changes (hidden by default) -->
+    {% if repository_text %}
+    <div>
+      Enter order of field id (image level only): <br />
+      This will set metadata field of image type in the specified order. If a
+      field is not contained in the repository, it will be skipped. Other fields
+      are placed after all these fields (but keeping its original order).
+      <form
+        action="{{ url_for('orderviewonly.OrderTemplateUpdate') }}"
+        method="POST"
+        onsubmit="return get_repo_id('hiddenrepoid3')"
+      >
+        <input
+          type="text"
+          name="templates_field_ids"
+          value="29, 30, 31, 32, 33, 80, 34, 36, 37, 38, 39, 40, 41, 42, 44, 45, 76, 35"
+        />
+        <input type="hidden" id="hiddenrepoid3" name="hiddenrepoid3" />
+        <input
+          type="submit"
+          value="TemplateOrderUpdate"
+          name="TemplateOrderUpdate"
+        />
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- eSM order change button (hidden by default) -->
+
+    <div class="single-button">
+      <form
+        action="{{ url_for('orderviewonly.esmOrderUpdate') }}"
+        method="POST"
+        onsubmit="return get_repo_id('hiddenrepoid1')"
+      >
+        <div id="horizontal-button-container">
+          <p>
+            {% if repository_text %} This button will place all "eSM" containing
+            metadata field at the end of order (for all content type):
+          </p>
+          <input type="hidden" id="hiddenrepoid1" name="hiddenrepoid1" />
+          <input type="submit" value="esmOrderUpdate" name="esmOrderUpdate" />
+        </div>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- eSM viewonly change button (hidden by default) -->
+
+    <div class="single-button">
+      <form
+        action="{{ url_for('orderviewonly.esmViewOnlyUpdate') }}"
+        method="POST"
+        onsubmit="return get_repo_id('hiddenrepoid2')"
+      >
+        <div id="horizontal-button-container">
+          <p>
+            {% if repository_text %} This button will place all "eSM" containing
+            metadata field to viewOnly (for all content type):
+          </p>
+          <input type="hidden" id="hiddenrepoid2" name="hiddenrepoid2" />
+          <input
+            type="submit"
+            value="esmViewOnlyUpdate"
+            name="esmViewOnlyUpdate"
+          />
+        </div>
+      </form>
+    </div>
+    {% endif %}
+  </body>
+
+  <script>
+    function get_repo_id(targetId) {
+      try {
+        var input1Value = document.getElementById("source_repository_id").value;
+        document.getElementById(targetId).value = input1Value;
+        return true; // Allow the form submission to proceed
+      } catch (error) {
+        console.error("An error occurred:", error);
+        return false; // Prevent form submission on error
+      }
+    }
+
+    function UpdateViewOnly(element) {
+      fetch("/orderviewonly/UpdateViewOnly", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          repository_id: document.getElementById("source_repository_id").value,
+          metadata_field_id: element.value,
+          checkbox_checked: element.checked,
+        }),
+      })
+        .then((response) => response.text())
+        .then((html) => {
+          document.body.innerHTML = html;
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+        });
+    }
+
+    function UpdateStudy(element) {
+      fetch("/orderviewonly/UpdateStudy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          repository_id: document.getElementById("source_repository_id").value,
+          metadata_field_id: element.value,
+          checkbox_checked: element.checked,
+        }),
+      })
+        .then((response) => response.text())
+        .then((html) => {
+          document.body.innerHTML = html;
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+        });
+    }
+  </script>
+</html>

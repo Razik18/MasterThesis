@@ -1,0 +1,53 @@
+@import url("base.css");
+
+form label {
+  margin-right: 5px;
+}
+
+p {
+  font-size: 14px;
+}
+
+.settings-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+#table-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  margin-top: 20px;
+  display: block;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+#table {
+  width: 100%;
+  border-collapse: collapse;
+}
+#table thead {
+  position: sticky;
+  top: 0;
+  background-color: #f9f9f9;
+  z-index: 1;
+}
+#table th,
+#table td {
+  border: 1px solid #ddd;
+  padding: 12px;
+  text-align: left;
+  font-size: 14px;
+}
+#table th:first-child,
+#table td:first-child {
+  width: 50px;
+}
+
+#horizontal-button-container {
+  display: flex;
+  align-items: center;
+}

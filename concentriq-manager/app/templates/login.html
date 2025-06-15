@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login</title>
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{{ url_for('static',filename='styles/login.css') }}"
+    />
+    <link
+      rel="shortcut icon"
+      href="{{ url_for('static', filename='images/labcorp.ico') }}"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Concentriq Manager Login</h1>
+      <div>
+        <form method="POST" action="{{ url_for('login.get_login') }}">
+          <div class="row">
+            <label>Concentriq Email:</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value="{{ email }}"
+              placeholder="Enter Your Email"
+              autofocus=""
+            />
+          </div>
+          <div class="row">
+            <label>Concentriq API password:</label>
+            <input
+              type="password"
+              id="pass"
+              name="password"
+              value="{{ password }}"
+              placeholder="Enter Your API password"
+            />
+          </div>
+          <div class="row">
+            <label>Select environment</label>
+            <select id="concentriq_env" name="concentriq_env">
+              <option value="" disabled selected>Select Environment</option>
+            </select>
+          </div>
+          {% with messages = get_flashed_messages(with_categories=true) %} {% if
+          messages %}
+          <div class="flash-msg">
+            {% for category, msg in messages %}
+            <div class="{{ category }}">{{ msg }}</div>
+            {% endfor %}
+          </div>
+          {% endif %} {% endwith %}
+          <div class="base-button">
+            <button>Login</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      // function to retreive and create different env options
+      function populateEnvOptions() {
+        fetch("/get_env_options")
+          .then((response) => response.json())
+          .then((data) => {
+            const select = document.getElementById("concentriq_env");
+            for (const [key, value] of Object.entries(data)) {
+              const option = document.createElement("option");
+              option.value = value;
+              option.text = key + ":" + value;
+              if (key == "production") {
+                option.selected = "selected";
+              }
+              select.appendChild(option);
+            }
+          });
+      }
+
+      // Function to run at opening of the page
+      window.onload = function () {
+        populateEnvOptions();
+      };
+    </script>
+  </body>
+</html>

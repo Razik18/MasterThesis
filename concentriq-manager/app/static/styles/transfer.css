@@ -1,0 +1,139 @@
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    margin: 20px;
+    background-color: #f4f4f9;
+    color: #333;
+  }
+  h1 {
+    color: #444;
+    font-size: 24px;
+    margin-bottom: 20px;
+  }
+  form {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  form label {
+    font-size: 16px;
+  }
+  form input[type="text"] {
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    flex: 1;
+  }
+  form button {
+    padding: 10px 20px;
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  form button:hover {
+    background-color: #0056b3;
+  }
+  .loader {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+    display: none;
+    margin-left: 10px;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .tables-container {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+  }
+  .ocr-table-container,
+  .mini-table-container {
+    flex: 1;
+  }
+  .ocr-table-container h2,
+  .mini-table-container h2 {
+    font-size: 18px;
+    margin-bottom: 10px;
+  }
+
+  #image-table-container,
+  #attachment-table-container {
+    width: 100%;
+    max-width: 100%;
+    margin-top: 20px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: left;
+    font-size: 14px;
+    word-wrap: break-word;
+  }
+  th {
+    background-color: #f4f4f9;
+  }
+  th.select-checkbox,
+  td.select-checkbox {
+    width: 30px !important;
+    padding: 0;
+    text-align: center;
+  }
+
+  #image-table thead,
+  #attachment-table thead {
+    position: sticky;
+    top: 0;
+    background-color: #f9f9f9;
+    z-index: 1;
+  }
+
+  .dataTables_scrollBody {
+    overflow-y: auto;
+  }
+
+  .button-container {
+    margin-top: 20px;
+  }
+  .update-all-button {
+    padding: 10px 20px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  .update-all-button:hover {
+    background-color: #218838;
+  }
+  .return-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    }
+    .return-container select,
+    .return-container button {
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid rgb(215, 199, 199);
+    border-radius: 5px;
+    }

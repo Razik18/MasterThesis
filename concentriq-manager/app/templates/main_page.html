@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>MainPage</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{{ url_for('static',filename='styles/main_page.css') }}"
+    />
+    <link
+      rel="shortcut icon"
+      href="{{ url_for('static', filename='images/labcorp.ico') }}"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <h1 class="list-functionality">List of functionalities:</h1>
+      <div class="base-button">
+        <button
+          class="base-button"
+          onclick="window.location.href='/orderviewonly';"
+        >
+          Order&ViewOnly
+        </button>
+      </div>
+      <div class="base-button">
+        <button class="base-button" onclick="window.location.href='/ocr';">
+          Fill Metadata
+        </button>
+      </div>
+      <div class="base-button">
+        <button class="base-button" onclick="window.location.href='/transfer';">
+          Transfer
+        </button>
+      </div>
+      <div class="base-button">
+        <button class="base-button" onclick="window.location.href='/rename';">
+          Rename Images
+        </button>
+      </div>
+    </div>
+  </body>
+</html>

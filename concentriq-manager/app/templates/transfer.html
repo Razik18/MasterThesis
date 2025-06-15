@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create JSON Transfer File</title>
+
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.css"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.datatables.net/select/1.6.2/css/select.dataTables.min.css"
+    />
+    <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='styles/transfer.css') }}"
+    />
+
+  </head>
+
+  <body>
+    <h1>Create JSON Transfer File</h1>
+
+    <!-- Form for loading repository -->
+    <form id="load-images-form">
+      <label for="source_repository_id">Enter Repository ID:</label>
+      <div id="load-images-button-container">
+        <input type="text" id="source_repository_id" name="source_repository_id" />
+        <button type="button" id="load-images-button" onclick="loadImages()">Load Repository</button>
+        <div class="loader" id="load-images-loader"></div>
+      </div>
+      <div class="return-container">
+        <button type="button" onclick="window.location.href='/main';">Main Menu</button>
+      </div>
+    </form>
+
+    <!-- Container holding both tables side-by-side -->
+    <div class="tables-container">
+      <!-- Images Table Container -->
+      <div class="ocr-table-container">
+        <h2>Images</h2>
+        <div id="image-table-container">
+          <table id="image-table" class="display">
+            <thead>
+              <tr>
+                <th class="select-checkbox">
+                  <input type="checkbox" id="select-all-images" />
+                </th>
+                <th>Image Name</th>
+                <th>Date</th>
+                <th>Image ID</th>
+                <th>Storage Key</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Image rows loaded dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Attachments Table Container -->
+      <div class="mini-table-container">
+        <h2>Attachments</h2>
+        <div id="attachment-table-container">
+          <table id="attachment-table" class="display">
+            <thead>
+              <tr>
+                <th class="select-checkbox">
+                  <input type="checkbox" id="select-all-attachments" />
+                </th>
+                <th>Attachment Name</th>
+                <th>Storage Key</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Attachment rows loaded dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="button-container" id="update-all-button-container" style="display:none;">
+      <button class="update-all-button" id="create-json-button" onclick="createJson()">Create JSON</button>
+      <div class="loader" id="update-all-loader"></div>
+    </div>
+
+    <!-- jQuery, DataTables, and Select Extension Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.js"></script>
+    <script src="https://cdn.datatables.net/select/1.6.2/js/dataTables.select.min.js"></script>
+
+    <script>
+      let imagesTable = null;
+      let attachmentsTable = null;
+      let imagesetName = "";
+
+
+      function loadImages() {
+        const sourceRepositoryId = document.getElementById("source_repository_id").value;
+        document.getElementById("load-images-loader").style.display = "inline-block";
+
+        fetch("/load_images_for_transfer", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `source_repository_id=${sourceRepositoryId}`,
+        })
+          .then(response => response.json())
+          .then(data => {
+            document.getElementById("load-images-loader").style.display = "none";
+            document.querySelector("#image-table thead").style.display = "table-header-group";
+            document.querySelector("#attachment-table thead").style.display = "table-header-group";
+            document.getElementById("update-all-button-container").style.display = "block";
+
+            imagesetName = data.imageset_name || "";
+            initializeImagesTable(data.images);
+            initializeAttachmentsTable(data.attachments);
+          })
+          .catch(error => {
+            console.error("Error loading data:", error);
+            document.getElementById("load-images-loader").style.display = "none";
+          });
+      }
+
+
+      function initializeImagesTable(imagesData) {
+        if (imagesTable) {
+          imagesTable.clear().destroy();
+        }
+        imagesTable = $("#image-table").DataTable({
+          data: imagesData,
+          columns: [
+            { data: null, className: "select-checkbox", defaultContent: "", orderable: false },
+            { data: "Image Name" },
+            {
+              data: "Date",
+              render: function(data, type) {
+                if (type === "sort") {
+                  const [day, month, year] = data.split("-");
+                  return new Date(year, parseInt(month) - 1, parseInt(day)).getTime();
+                }
+                return data;
+              }
+            },
+            { data: "Image ID" },
+            { data: "storageKey" },
+          ],
+          select: {
+            style: "multi",
+            selector: "td.select-checkbox",
+          },
+          paging: true,
+          pageLength: 10,
+          order: [[1, "asc"]],
+          searching: true,
+          scrollY: "500px",
+          scrollCollapse: true,
+        });
+        $("#select-all-images").off("click").on("click", function () {
+          if (this.checked) {
+            imagesTable.rows({ search: "applied" }).select();
+          } else {
+            imagesTable.rows({ search: "applied" }).deselect();
+          }
+        });
+        imagesTable.on("select deselect", function () {
+          const totalRows = imagesTable.rows({ search: "applied" }).count();
+          const selectedRows = imagesTable.rows({ selected: true, search: "applied" }).count();
+          $("#select-all-images").prop("checked", totalRows === selectedRows && totalRows > 0);
+        });
+      }
+
+      function initializeAttachmentsTable(attachmentsData) {
+        if (attachmentsTable) {
+          attachmentsTable.clear().destroy();
+        }
+        attachmentsTable = $("#attachment-table").DataTable({
+          data: attachmentsData,
+          columns: [
+            { data: null, className: "select-checkbox", defaultContent: "", orderable: false },
+            { data: "Attachment Name" },
+            { data: "storageKey" },
+          ],
+          select: {
+            style: "multi",
+            selector: "td.select-checkbox",
+          },
+          paging: true,
+          pageLength: 10,
+          order: [[1, "asc"]],
+          searching: true,
+          scrollY: "300px",
+          scrollCollapse: true,
+        });
+        $("#select-all-attachments").off("click").on("click", function () {
+          if (this.checked) {
+            attachmentsTable.rows({ search: "applied" }).select();
+          } else {
+            attachmentsTable.rows({ search: "applied" }).deselect();
+          }
+        });
+        attachmentsTable.on("select deselect", function () {
+          const totalRows = attachmentsTable.rows({ search: "applied" }).count();
+          const selectedRows = attachmentsTable.rows({ selected: true, search: "applied" }).count();
+          $("#select-all-attachments").prop("checked", totalRows === selectedRows && totalRows > 0);
+        });
+      }
+
+      // Create JSON from selected rows in both tables
+      function createJson() {
+        const destinationBucket = prompt("Enter destination bucket:");
+        if (!destinationBucket) {
+          alert("Destination bucket is required.");
+          return;
+        }
+        const destinationFolder = prompt("Enter destination folder:");
+        if (!destinationFolder) {
+          alert("Destination folder is required.");
+          return;
+        }
+
+        const selectedImages = imagesTable ? imagesTable.rows({ selected: true }).data().toArray() : [];
+        const selectedAttachments = attachmentsTable ? attachmentsTable.rows({ selected: true }).data().toArray() : [];
+
+        const imageEntries = selectedImages.map(row => ({
+          storageKey: row.storageKey,
+          name: row["Image Name"]
+        }));
+        const attachmentEntries = selectedAttachments.map(row => ({
+          storageKey: row.storageKey,
+          name: row["Attachment Name"]
+        }));
+
+        const combinedEntries = [...attachmentEntries,...imageEntries];
+        const jsonObject = {
+          destination_bucket: destinationBucket,
+          destination_folder: destinationFolder,
+          entries: combinedEntries
+        };
+
+        const jsonString = JSON.stringify(jsonObject, null, 2);
+        const now = new Date();
+        const day = now.getDate();
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const month = monthNames[now.getMonth()];
+        const year = now.getFullYear();
+        const fileDate = `${day}${month}${year}`;
+        const sanitizedName = imagesetName ? imagesetName.replace(/\s+/g, "_") : "Repository";
+        const fileName = `${sanitizedName}_${fileDate}.json`;
+
+        const blob = new Blob([jsonString], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const tempLink = document.createElement("a");
+        tempLink.href = url;
+        tempLink.download = fileName;
+        document.body.appendChild(tempLink);
+        tempLink.click();
+        document.body.removeChild(tempLink);
+        URL.revokeObjectURL(url);
+      }
+
+      // Handle Enter key for repository ID field
+      window.onload = function() {
+        document.getElementById("source_repository_id").addEventListener("keydown", function (event) {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            document.getElementById("load-images-button").click();
+          }
+        });
+      };
+    </script>
+  </body>
+</html>

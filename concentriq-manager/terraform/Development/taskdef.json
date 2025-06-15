@@ -1,0 +1,28 @@
+[
+    {
+        "name": "${name}",
+        "image": "@AWSREPODEV@:@tag@",
+        "essential": true,
+        "portMappings": [
+            {
+                "containerPort": ${port}
+            }
+        ],
+        "memory": 1800,
+        "cpu": 1024,
+        "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+                "awslogs-group": "${logGroup}",
+                "awslogs-region": "us-east-1",
+                "awslogs-stream-prefix": "ecs"
+            }
+        },
+        "environment": [
+            {
+              "name": "ENV",
+              "value": "Development"
+            }
+        ]
+    }
+]

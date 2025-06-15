@@ -1,0 +1,150 @@
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f9;
+    color: #333;
+}
+.container {
+    background: #fff;
+    padding: 20px 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 600px;
+    margin: 40px auto; 
+    padding: 20px 40px;
+    position: relative;
+}
+.back-arrow {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    border: 4px solid #007bff;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-decoration: none;
+    color: #007bff;
+    font-size: 24px;
+    background-color: #fff;
+}
+.back-arrow:hover {
+    border-color: #0056b3;
+    color: #0056b3;
+}
+h1 {
+    color: #444;
+    margin-bottom: 20px;
+    text-align: center;
+}
+form {
+    margin-bottom: 20px;
+}
+.setting-row {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 15px;
+}
+.setting-row label {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+.setting-row input, .setting-row select {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+}
+.protocol-container, .metadata-container {
+    margin-bottom: 20px;
+}
+.protocol-row, .metadata-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.protocol-row input, .protocol-row select, .metadata-row input, .metadata-row select {
+    flex-grow: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+}
+.protocol-row button, .metadata-row button {
+    padding: 10px 20px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+.protocol-row button:hover, .metadata-row button:hover {
+    background-color: #218838;
+}
+.protocol-list, .metadata-list {
+    margin-top: 20px;
+}
+.protocol-item, .metadata-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    background-color: #f9f9f9;
+}
+.protocol-item span, .metadata-item span {
+    flex-grow: 1;
+}
+.protocol-item button, .metadata-item button {
+    background: none;
+    border: none;
+    color: red;
+    font-size: 18px;
+    cursor: pointer;
+}
+.template-dropdown {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+}
+.template-dropdown select {
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+.save-button {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+.save-button button {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+.save-button button:hover {
+    background-color: #0056b3;
+}
+.metadata-dropdown {
+    max-width: 200px; /* Set a fixed width for the dropdown */
+}
+.checkbox-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+.checkbox-row label {
+    margin-left: 10px;
+}

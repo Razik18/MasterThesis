@@ -1,0 +1,109 @@
+{
+    "templates": {
+        "Validation": {
+            "metadata": {
+                "29": {
+                    "name": "Accession",
+                    "order": "1",
+                    "row": "1"
+                },
+                "31": {
+                    "name": "Stain",
+                    "order": "2",
+                    "row": ""
+                },
+                "48": {
+                    "name": "Clone",
+                    "order": "3",
+                    "row": ""
+                },
+                "146": {
+                    "name": "Protocol",
+                    "order": "",
+                    "row": "2"
+                }
+            },
+            "protocols": {
+                "U74": {
+                    "clone": "SP93",
+                    "prefix": "7.",
+                    "stain": "MSH6"
+                },
+                "U75": {
+                    "clone": "NA",
+                    "prefix": "2.",
+                    "stain": "MMR Rabbit NCR"
+                },
+                "U94": {
+                    "clone": "4B5 RxDx",
+                    "prefix": "3.",
+                    "stain": "HER2 IHC"
+                },
+                "U95": {
+                    "clone": "",
+                    "prefix": "2.",
+                    "stain": "HER2 IHC NCR"
+                },
+                "U11": {
+                    "prefix": "2. ",
+                    "stain": "HER2 IHC NCR",
+                    "clone": ""
+                },
+                "U10": {
+                    "prefix": "3. ",
+                    "stain": "HER2 IHC",
+                    "clone": "4B5"
+                }
+            },
+            "naming_pattern": "[Accession] [Stain] [Clone]",
+            "use_patient_id": false,
+            "use_image_name": true
+        },
+        "Jose": {
+            "metadata": {
+                "29": {
+                    "name": "Accession",
+                    "order": "1",
+                    "row": "1"
+                },
+                "30": {
+                    "name": "Container",
+                    "order": "",
+                    "row": "1"
+                },
+                "31": {
+                    "name": "Stain",
+                    "order": "2",
+                    "row": ""
+                }
+            },
+            "protocols": {},
+            "naming_pattern": "[Accession] [Stain]",
+            "use_patient_id": true,
+            "use_image_name": false
+        },
+        "Rename": {
+            "metadata": {
+                "29": {
+                    "name": "Accession",
+                    "order": "1",
+                    "row": ""
+                },
+                "30": {
+                    "name": "Container",
+                    "order": "2",
+                    "row": ""
+                },
+                "31": {
+                    "name": "Stain",
+                    "order": "3",
+                    "row": ""
+                }
+            },
+            "protocols": {},
+            "naming_pattern": "[Accession]-[Container]_[Stain]",
+            "use_patient_id": false,
+            "use_image_name": true
+        }
+    }
+}

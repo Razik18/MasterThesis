@@ -1,0 +1,197 @@
+#image-table-container {
+    width: 100%;
+    max-width: 100%;
+    margin-top: 20px;
+    height: 600px; /* Adjust the height as needed */
+}
+
+#image-table {
+    width: 100% !important;
+    table-layout: fixed;
+    white-space: nowrap;
+}
+
+.dataTables_wrapper {
+    width: 100%;
+    height: 100%; /* Ensure the wrapper takes full height */
+}
+
+.dataTables_scrollHead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: white; /* Ensure the header background is visible */
+}
+
+.dataTables_scrollBody {
+    height: calc(100% - 100px); /* Adjust based on header and pagination height */
+    overflow-y: auto;
+}
+
+.dataTables_paginate, .dataTables_filter {
+    position: sticky;
+    bottom: 0;
+    background-color: white;
+    z-index: 2;
+}
+
+#image-table th, #image-table td {
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+#image-table th:nth-child(2), #image-table td:nth-child(2) {
+    max-width: 200px; /* Adjust as needed */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.resizable-img {
+    display: inline-block;
+    resize: both;
+    overflow: hidden;
+    width: 145px; /* Default width */
+    height: 136px; /* Default height */
+    max-width: 300px; /* Prevent excessive scaling */
+    max-height: 300px;
+    border: 1px solid #ccc; /* Optional: Visual cue for resizing */
+}
+
+.resizable-img img {
+    width: 100%;
+    height: 100%;
+    cursor: nwse-resize; /* Shows resize cursor */
+    object-fit: contain; /* Maintain aspect ratio */
+}
+
+.missing-value {
+    color: red;
+    font-weight: bold;
+}
+.update-all-button {
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+h1 {
+    color: #333;
+}
+
+form {
+    margin-bottom: 20px;
+}
+
+form {
+    margin-bottom: 20px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    margin: 20px;
+    background-color: #f4f4f9;
+    color: #333;
+}
+h1 {
+    color: #444;
+    font-size: 24px;
+    margin-bottom: 20px;
+}
+form {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+form label {
+    font-size: 16px;
+}
+form input[type="text"] {
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    flex: 1;
+}
+form button {
+    padding: 10px 20px;
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+form button:hover {
+    background-color: #0056b3;
+}
+.button-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.dropdown-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.dropdown-container select, .dropdown-container button {
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+.settings-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+}
+.loader {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+    display: none;
+    margin-left: 10px;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+#load-images-button-container {
+    display: flex;
+    align-items: center;
+}
+
+table.dataTable th:nth-child(1) {
+    width: 10px;
+    max-width: 10px;
+    word-break: break-all;
+    white-space: pre-line;
+  }
